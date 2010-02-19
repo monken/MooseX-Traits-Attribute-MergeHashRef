@@ -2,7 +2,7 @@ package Moose::Meta::Attribute::Custom::Trait::MergeHashRef;
 use Moose::Role;
 use MooseX::Traits::Attribute::MergeHashRef;
 
-has '+clearer' => (default => sub { 'clear_' . $_[0]->name } );
+has 'clearer' => (is => 'rw', default => sub { 'clear_' . $_[0]->name } );
 
 sub accessor_metaclass { 'MooseX::Traits::Attribute::MergeHashRef' }
 

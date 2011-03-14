@@ -6,7 +6,6 @@ has 'clearer' => (is => 'rw', default => sub { 'clear_' . $_[0]->name } );
 
 sub accessor_metaclass { 'MooseX::Traits::Attribute::MergeHashRef' }
 
-
 after 'install_accessors' => sub { 
     my $attr  = shift;
     my $class = $attr->associated_class;

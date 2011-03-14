@@ -1,34 +1,62 @@
 package MooseX::Traits::Attribute::MergeHashRef;
-
-use base 'Moose::Meta::Method::Accessor';
+use Moose;
+extends 'Moose::Meta::Method::Accessor';
 
 use warnings;
 use strict;
+use Try::Tiny;
+use Carp;
 
 use Hash::Merge qw(merge);
 
 sub _inline_pre_body {
     my $self = shift;
     my $isa  = $self->associated_attribute->{isa};
-    unless ($isa eq 'HashRef') {
+    unless ( $isa eq 'HashRef' ) {
         warn 'MergeHashRef work on HashRef attributes only';
         return '';
     }
-    my $inv         = '$_[0]';
+    my $inv = '$_[0]';
 
     my $attr = $self->associated_attribute;
 
     my $mi = $attr->associated_class->get_meta_instance;
-    my $pred = $mi->inline_is_slot_initialized($inv, $attr->name);
-    my $old = 'my ($old) = '
-            . $pred . q{ ? }
-            . $self->_inline_get($inv) . q{ : ()} . ";\n";
+    my $pred = $mi->inline_is_slot_initialized( $inv, $attr->name );
+    my $old =
+        'my ($old) = ' 
+      . $pred . q{ ? }
+      . $self->_inline_get($inv)
+      . q{ : ()} . ";\n";
     return $old . q{
 use Hash::Merge qw(merge);
 $_[1] = merge ($_[1], $old) if(defined $old && defined $_[1]);
-
 };
 }
+
+override _generate_accessor_method_inline => sub {
+    my $self = shift;
+    my $attr = $self->associated_attribute;
+
+    return try {
+        $self->_compile_code(
+                              [ 'sub {',
+                                'if (@_ > 1) {',
+                                'use Hash::Merge qw(merge);',
+                                '$_[1] = merge ($_[1], ',
+                                $attr->_inline_instance_get('$_[0]'),
+                                ') if(defined ',
+                                $attr->_inline_instance_get('$_[0]'),
+                                ' && defined $_[1]);',
+                                $attr->_inline_set_value( '$_[0]', '$_[1]' ),
+                                '}',
+                                $attr->_inline_get_value('$_[0]'),
+                                '}',
+                              ] );
+    }
+    catch {
+        confess "Could not generate inline accessor because : $_";
+    };
+} unless( Moose->VERSION < 1.9);
 
 1;
 
